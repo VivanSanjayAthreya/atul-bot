@@ -49,7 +49,7 @@ if prompt := st.chat_input("Ask a question..."):
 
     # 2. Generate AI Response
     with st.chat_message("assistant"):
-        with st.spinner("Searching the knowledge base..."):
+        with st.spinner("Thinking..."):
             try:
                 # A. Search
                 query_vector = embedder.embed_query(prompt)
@@ -83,8 +83,10 @@ if prompt := st.chat_input("Ask a question..."):
                 CONVERSATIONAL RULES:
                 1. Speak naturally. NEVER use phrases like "Based on the context," "According to the provided text," or "The documents state."
                 2. Do not explain where you got the information from in your sentences; just state the wisdom directly as if you already know it.
-                3. If the answer is not in your knowledge, say: "I am sorry, I don't have a detailed record of that specific topic in my current archives."
-                4. Use "we" or "our community" to sound more like a member of the tradition.
+                3. Always understand the context in which the knowledge is fetched. Don't just copy-paste facts. Weave them into a meaningful answer that matches with the words used by the user. 
+                4. Aways use the user's language style and tone to make it feel more personal and less robotic.
+                5. If the answer is not in your knowledge, say: "I am sorry, I don't have a detailed record of that specific topic in my current archives."
+                6. Use "we" or "our community" to sound more like a member of the tradition.
 
                 Conversation History:
                 {history_str}
