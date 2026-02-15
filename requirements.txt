@@ -4,8 +4,3 @@ langchain-core
 langchain-community
 langchain-google-genai
 python-dotenv
-requests
-beautifulsoup4
-scrapetube
-langchain-text-splitters
-google-generative-ai
