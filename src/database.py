@@ -1,51 +1,76 @@
-# src/database.py
 import time
 from langchain_community.vectorstores import Qdrant
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+from qdrant_client import QdrantClient, models
 from src import config
 
-def ingest_documents(documents):
-    if not documents:
-        print("⚠️  No documents provided to ingest.")
-        return
+# 1. HELPER: Check if a URL exists
+def url_exists_in_db(client, url):
+    """
+    Returns True if the database already contains chunks from this source URL.
+    This is a crucial check to prevent duplicates, especially when re-running the pipeline."""
+    try:
+        result, _ = client.scroll(
+            collection_name=config.COLLECTION_NAME,
+            scroll_filter=models.Filter(
+                must=[
+                    models.FieldCondition(
+                        key="metadata.source",
+                        match=models.MatchValue(value=url),
+                    )
+                ]
+            ),
+            limit=1
+        )
+        return len(result) > 0
+    except Exception:
+        return False
 
-    print(f"\n🚜 Ingestion Engine started for {len(documents)} documents...")
-
-    # 1. Split Text
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=config.CHUNK_SIZE,
-        chunk_overlap=config.CHUNK_OVERLAP
+# 2. ENGINE: The Upload Logic
+def upload_chunks(chunks, batch_size=10):
+    """
+    Uploads chunks with robust retry logic.
+    """
+    # 1. Setup Client
+    client = QdrantClient(
+        url=config.QDRANT_URL, 
+        api_key=config.QDRANT_API_KEY,
+        timeout=60 
     )
-    splits = text_splitter.split_documents(documents)
-    print(f"   ✂️  Split into {len(splits)} chunks.")
 
-    # 2. Upload in Batches (To avoid hitting API limits)
-    batch_size = 50  # Upload 50 chunks at a time
-    total_batches = (len(splits) // batch_size) + 1
+    # 2. Setup Vector Store (Uses config.get_embeddings() now!)
+    vector_store = Qdrant(
+        client=client,
+        collection_name=config.COLLECTION_NAME,
+        embeddings=config.get_embeddings(),
+    )
 
-    print(f"   🚀 Uploading to Qdrant in {total_batches} batches...")
+    total_chunks = len(chunks)
+    current_index = 0
+    
+    print(f"🚀 Engine: Uploading {total_chunks} chunks in batches of {batch_size}...")
 
-    for i in range(0, len(splits), batch_size):
-        batch = splits[i : i + batch_size]
+    # 3. The Smart Loop
+    while current_index < total_chunks:
+        batch = chunks[current_index : current_index + batch_size]
+        
         try:
-            Qdrant.from_documents(
-                batch,
-                config.get_embeddings(),
-                url=config.QDRANT_URL,
-                api_key=config.QDRANT_API_KEY,
-                collection_name=config.COLLECTION_NAME,
-                force_recreate=False 
-            )
-            print(f"      ✅ Batch {i//batch_size + 1}/{total_batches} uploaded.")
-            
-            # CRITICAL: Sleep for 2 seconds between batches to be nice to Gemini Free Tier
-            time.sleep(2) 
+            vector_store.add_documents(batch)
+            current_index += batch_size
+            print(f"   Saved {min(current_index, total_chunks)}/{total_chunks} chunks...")
+            # (Commented out to reduce noise in the main loop)
+            time.sleep(1)
             
         except Exception as e:
-            print(f"      ❌ Error on batch {i//batch_size + 1}: {e}")
-            # If we hit a rate limit, wait longer (60 seconds) and try to continue
-            if "429" in str(e):
-                print("      ⏳ Hit Rate Limit. Sleeping for 60 seconds...")
+            error_msg = str(e).lower()
+            
+            # HANDLE RATE LIMITS
+            if "429" in error_msg or "resource_exhausted" in error_msg or "timed out" in error_msg:
+                print(f"   ⏳ Hit Limit/Timeout. Sleeping 60s... (Retrying batch)")
                 time.sleep(60)
-
-    print("   🎉 Ingestion Complete.")
+                # We do NOT increment current_index, so it retries the same batch
+            
+            # HANDLE CRITICAL ERRORS
+            else:
+                print(f"   ❌ Critical Error on batch starting at {current_index}: {e}")
+                # Skip bad batch to avoid infinite loop
+                current_index += batch_size
