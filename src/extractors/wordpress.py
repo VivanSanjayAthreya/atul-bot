@@ -126,6 +126,14 @@ if __name__ == "__main__":
     print(f"\n🚀 Starting scrape of {len(article_urls)} articles...")
     
     # Check if file exists to load previous progress (Optional, simple overwrite here)
+    # Ensure data directory exists and set file paths (project-root data, robust)
+    from pathlib import Path
+    project_root = Path(__file__).resolve().parents[2]
+    data_dir = project_root / 'data'
+    data_dir.mkdir(parents=True, exist_ok=True)
+    partial_path = data_dir / "scraped_articles_partial.json"
+    final_path = data_dir / "scraped_articles_final.json"
+
     scraped_data = []
     
     # 2. Scrape & Save Incrementally
@@ -138,14 +146,14 @@ if __name__ == "__main__":
         
         # Save every 10 articles (so you don't lose data if it crashes)
         if (i + 1) % 10 == 0:
-            with open("scraped_articles_partial.json", "w", encoding="utf-8") as f:
+            with open(partial_path, "w", encoding="utf-8") as f:
                 json.dump(scraped_data, f, ensure_ascii=False, indent=4)
             print("      💾 (Auto-saved progress)")
             
         time.sleep(1) 
 
     # 3. Final Save
-    with open("scraped_articles_final.json", "w", encoding="utf-8") as f:
+    with open(final_path, "w", encoding="utf-8") as f:
         json.dump(scraped_data, f, ensure_ascii=False, indent=4)
 
-    print(f"\n✅ DONE! Saved {len(scraped_data)} articles to 'scraped_articles_final.json'.")
+    print(f"\n✅ DONE! Saved {len(scraped_data)} articles to '{final_path}'.")

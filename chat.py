@@ -9,7 +9,7 @@ from src import config
 warnings.filterwarnings("ignore")
 
 def start_chat():
-    print("🤖 Srivaishnava Bot: Knowledge Base Connected (with Memory)")
+    print("Atul")
     
     # 1. Connect to Qdrant & AI
     client = QdrantClient(url=config.QDRANT_URL, api_key=config.QDRANT_API_KEY)
@@ -107,7 +107,7 @@ def start_chat():
             response = llm.invoke(formatted_prompt)
             ai_answer = response.content
             
-            print(f"\n🤖 Bot: {ai_answer}")
+            print(f"\nAtul: {ai_answer}")
             
             # --- STEP E: UPDATE HISTORY ---
             # Save the exchange to memory

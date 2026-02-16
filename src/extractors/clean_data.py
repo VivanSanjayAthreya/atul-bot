@@ -3,8 +3,11 @@ import re
 import os
 
 # --- CONFIGURATION ---
-INPUT_FILE = "scraped_articles_final.json"
-OUTPUT_FILE = "cleaned_articles.json"
+# Save/load files from the project-root data directory
+data_dir = os.path.normpath(os.path.join(os.path.dirname(__file__), '../../..', 'data'))
+os.makedirs(data_dir, exist_ok=True)
+INPUT_FILE = os.path.join(data_dir, "scraped_articles_final.json")
+OUTPUT_FILE = os.path.join(data_dir, "cleaned_articles.json")
 
 def clean_text_logic(text):
     """
